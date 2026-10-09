@@ -1,0 +1,340 @@
+{
+  "title": "DXC GitHub Actions Office Hour",
+  "session_date": "2026-10-13",
+  "research_start": "2026-09-10",
+  "research_end": "2026-10-09",
+  "selected_catalog_ids": [1, 2, 7, 8, 9],
+  "template": "Session Presentation Deck Template.pptx",
+  "slides": [
+    {
+      "title": "GitHub Actions\nMonthly Office Hour",
+      "kind": "cover",
+      "minutes": 2,
+      "subtitle": "DXC | 13 October 2026",
+      "body": "Security controls, reliable evidence, and runner readiness",
+      "notes": "Welcome to our October GitHub Actions Office Hour. Today we are focusing on five updates selected for their practical impact on DXC delivery: cache access controls, workflow execution protections, expired artifact visibility, bounded workflow reporting, and self-hosted runner enforcement. Our research window is September 10 through October 9, 2026. We will distinguish new capabilities from operational changes, and distinguish published behavior from what we actually observe in our demo repository. The first fifty minutes are for the presentation and demonstrations. At minute fifty we will stop and reserve the final ten minutes for questions. Everything demonstrated is designed to run from a GitHub repository using Actions workflows. We will not modify production runner fleets or apply organization-wide policies as part of this session."
+    },
+    {
+      "title": "Five updates. Fifty minutes. Ten minutes for questions.",
+      "kind": "agenda",
+      "minutes": 1,
+      "rows": [
+        ["00-04", "Welcome and demo contract", "What is verified and what is conditional"],
+        ["04-16", "Cache least privilege", "Four modes; reusable-workflow ceiling"],
+        ["16-27", "Execution protections", "File-scoped policy and real trigger outcomes"],
+        ["27-35", "Expired artifact visibility", "Natural expiry with retained provenance"],
+        ["35-41", "Bounded reporting", "Counts, retrieval caps, and time windows"],
+        ["41-46", "Runner readiness", "Registration is not runtime support"],
+        ["46-50", "DXC adoption checklist", "Owners, next actions, and buffer"],
+        ["50-60", "Q&A", "Hard stop on presentation and demos"]
+      ],
+      "notes": "Here is the run of show. Cache controls get the first deep dive, followed by execution protections. We then move from security to operational evidence: artifact expiry and reporting limits. We finish the technical content with a read-only runner readiness audit. The final four minutes before Q&A are for an actionable adoption checklist and any short runner-queue buffer. The demo budgets are presenter budgets, not a promise that GitHub will provision every hosted runner instantly. I will use rehearsed runs if a live queue threatens the schedule. That keeps the full ten-minute question period intact."
+    },
+    {
+      "title": "The demo contract: observable, safe, and honest",
+      "kind": "cards",
+      "minutes": 1,
+      "items": [
+        ["Workflow-driven", "Manual triggers in GitHub.\nHarmless data and isolated keys.\nNo production fleet changes."],
+        ["Real evidence", "Cache contents and API state.\nActual policy errors and insights.\nOriginal artifact receipts."],
+        ["Explicit limits", "Admin access for policies/fleet APIs.\nExpiry prepared in advance.\nSynthetic tests clearly labeled."]
+      ],
+      "callout": "A green step, HTTP 204, or absent record is not sufficient proof by itself.",
+      "notes": "Three rules will guide the demos. First, execution is workflow-driven with harmless data and narrow scopes. Second, we inspect observable evidence rather than relying on green step colors. Third, we state limitations explicitly. Policy administration and runner administration need separate approved credentials. Natural artifact expiry needs preparation before the live session. A small repository does not demonstrate a two-thousand-five-hundred-run threshold merely because a unit test covers it. If a prerequisite is unavailable, I will show genuine rehearsal evidence or an explanatory example and label it accordingly. That distinction is important when we turn a demonstration into an enterprise adoption decision."
+    },
+    {
+      "title": "Cache access can now follow the trust boundary",
+      "kind": "columns",
+      "minutes": 3,
+      "section": "1 | Cache permissions | GA on github.com",
+      "items": [
+        ["What changed", "cache-mode at workflow or job level.\nFour explicit restore/save combinations.\nScoped cache tokens enforce access.\nJob settings override workflow defaults."],
+        ["Why DXC should care", "Give tests only the cache access they need.\nSeparate trusted publishers from consumers.\nConstrain shared reusable workflows.\nReview low-trust event overrides carefully."]
+      ],
+      "callout": "Do not grant cache writes to an untrusted trigger just to remove a warning.",
+      "source": ["GitHub Changelog | 10 Sep 2026", "https://github.blog/changelog/2026-09-10-control-github-actions-cache-access-with-cache-mode/"],
+      "notes": "The September tenth release introduces cache-mode as a generally available control on github.com across GitHub plans. It can be declared for the whole workflow or for an individual job. Its value determines whether a job may restore, save, both, or neither. This is not merely a convention in our YAML: the cache service enforces the scoped access. A job-level value overrides the workflow-level setting. For DXC, the design question is which jobs produce trusted cache content and which jobs should only consume it. A test job may need restore access without needing permission to publish a cache. A trusted build job may need both. The important warning is that an explicit write or write-only declaration on a low-trust trigger can override a secure read-only default. We must choose the trust boundary deliberately rather than treating an explicit setting as automatically safer. Our demo avoids untrusted pull request checkout entirely."
+    },
+    {
+      "title": "The four cache modes have different guarantees",
+      "kind": "table",
+      "minutes": 2,
+      "section": "1 | Read and write are independent capabilities",
+      "headers": ["Mode", "Restore", "Save", "Typical design intent"],
+      "rows": [
+        ["read", "Allowed", "Denied", "Consume trusted cache content"],
+        ["write", "Allowed", "Allowed", "Trusted build/publisher"],
+        ["write-only", "Denied", "Allowed", "Publish without consuming prior cache"],
+        ["none", "Denied", "Denied", "No cache dependency or access"]
+      ],
+      "callout": "Denied cache operations can log and continue. Green does not mean restored or saved.",
+      "source": ["Workflow syntax | cache-mode", "https://docs.github.com/actions/reference/workflows-and-actions/workflow-syntax#cache-mode"],
+      "notes": "Read means restore only. Write permits both restore and save. Write-only permits publishing without restoring existing content. None disables both operations. These are access modes, not cache hit guarantees: an allowed restore can still miss because the key does not exist. Also, when the effective mode denies an operation, the cache step can log an informational message and continue without failing the job. A denied restore behaves like a miss and a denied save simply does not happen. That is why a green Actions step is not sufficient verification. Our workflow first seeds known content, checks whether the marker really appeared, and then uses a separate API-based verifier to determine whether candidate cache entries were actually created. This turns the abstract permission matrix into directly inspectable results."
+    },
+    {
+      "title": "A reusable workflow cannot elevate cache access",
+      "kind": "code",
+      "minutes": 2,
+      "section": "1 | The caller sets the ceiling",
+      "code": "jobs:\n  read:\n    cache-mode: read\n    uses: ./.github/workflows/demo-1-cache-probe.yml\n    with:\n      mode: read\n\n# Inside the called workflow:\n# cache-mode: write\n# Effective access still cannot exceed the caller.",
+      "items": [
+        ["Caller", "Grants read-only cache access."],
+        ["Called workflow", "Requests write but cannot elevate."],
+        ["Evidence", "Restore succeeds; candidate save is absent."]
+      ],
+      "source": ["Cache-mode release and reusable-workflow semantics", "https://github.blog/changelog/2026-09-10-control-github-actions-cache-access-with-cache-mode/"],
+      "notes": "This is the part I want platform teams to notice. A repository can call a reusable workflow while limiting the cache access granted to it. In this example the caller grants read. The called workflow requests write, but that declaration cannot increase access above what the caller allowed. In our package, the same reusable helper is called four times with the four different modes. This makes the trust ceiling easy to see without duplicating four different implementations. We expect the read caller to restore the trusted seed while failing to publish its candidate cache. The service-side cache inventory is the final evidence for that second claim. When adopting this pattern, document both the reusable workflow's requirements and the caller's trust assumptions so that the limit is intentional rather than an unexplained cache miss."
+    },
+    {
+      "title": "Demo 1 | Prove the permission matrix",
+      "kind": "demo",
+      "minutes": 5,
+      "workflow": "demo-1-cache-modes.yml",
+      "items": [
+        ["Launch", "Actions > Demo 1 - Cache least privilege > Run workflow"],
+        ["Observe restores", "Open the four reusable probe summaries and marker assertions."],
+        ["Verify saves", "Open the independent cache-state verifier and evidence artifact."]
+      ],
+      "callout": "Expected saves: write + write-only only. Expected restores: read + write only.",
+      "notes": "Switch to the GitHub demo repository. Open the cache-mode workflow and its reusable helper, then launch the workflow on the default branch, or open the already-running rehearsal if queue time is significant. Explain the trusted seed and unique run-specific keys. Open each probe summary to show the asserted restore outcome. Then open the verifier summary, which checks actual cache records through the API. The two save-capable modes should have candidate entries and the two other modes should not. The called helper requested write throughout, demonstrating the caller ceiling at the same time. If a result does not match, say that the observed behavior is unresolved and inspect the actual logs; do not call it successful because all cache steps are green. Keep this segment to five minutes. If the live run is queued, show a real successful rehearsal run with its timestamp and transition. We have controlled what a running job may do with cache content; next we control whether a workflow may execute."
+    },
+    {
+      "title": "Execution protections now target individual workflow files",
+      "kind": "cards",
+      "minutes": 3,
+      "section": "2 | Workflow execution protections | GA",
+      "items": [
+        ["Who", "Actor rules allow selected users,\nroles, teams, or app identities."],
+        ["What", "Event rules allow selected triggers,\nincluding workflow_dispatch."],
+        ["Where", "Workflow-file targeting scopes policy\nto sensitive automation in one repo."]
+      ],
+      "callout": "GA adds file targeting, insights, and REST administration. Evaluate requires Enterprise Cloud.",
+      "source": ["GitHub Changelog | 17 Sep 2026", "https://github.blog/changelog/2026-09-17-workflow-execution-protections-in-github-actions-generally-available/"],
+      "notes": "The September seventeenth general availability announcement adds three important capabilities: targeting specific workflow files, policy insights, and REST administration at repository, organization, and enterprise levels. Actor rules answer who may trigger execution. Event rules answer which events are permitted. File targeting answers which workflows the policy applies to. Together these let a platform team distinguish ordinary contribution access from the ability to execute a sensitive workflow. Evaluate mode is useful for observing would-block impact before enforcement, but it requires Enterprise Cloud. Policies layer across account levels, so a repository demo does not override a broader enterprise restriction. Also, the announced default protection for pull_request_target on affected public repositories has a November second enforcement date. We should not claim that every repository is already actively blocked on October thirteenth."
+    },
+    {
+      "title": "Policy as code, with a deliberately narrow target",
+      "kind": "code",
+      "minutes": 2,
+      "section": "2 | This demo changes one disposable workflow only",
+      "code": "{\n  \"enforcement\": \"evaluate\",\n  \"conditions\": {\n    \"workflow_path\": {\n      \"include\": [\".github/workflows/demo-2-policy-target.yml\"],\n      \"exclude\": []\n    }\n  },\n  \"rules\": [{\"type\": \"restrict_action_events\",\n    \"parameters\": {\"allowed_events\": [\"workflow_dispatch\"]}}]\n}",
+      "items": [
+        ["Permitted", "Manual workflow_dispatch."],
+        ["Disallowed", "Named repository_dispatch probe."],
+        ["Recovery path", "Control workflow is outside the target."]
+      ],
+      "source": ["Actions policies REST API", "https://docs.github.com/en/rest/actions/policies"],
+      "notes": "This excerpt shows the core policy body used by the demo. The management script supplies a unique demo name and scopes the policy to one exact file. That file has two harmless triggers: manual workflow dispatch and a specifically named repository dispatch. The policy permits only the first. The control workflow is not targeted, so we retain a recovery and cleanup path. In a real deployment, actor rules can be layered with event rules, but we are deliberately keeping the live example small and observable. Policy writes use an approved administrator credential stored in a protected Actions environment. The ordinary GITHUB_TOKEN should not be assumed to have these administrative privileges. If our account lacks evaluate mode, we can use active mode directly in the disposable repository and explain the missing evaluate capability honestly."
+    },
+    {
+      "title": "Demo 2 | Evaluate, enforce, inspect, then clean up",
+      "kind": "demo",
+      "minutes": 6,
+      "workflow": "demo-2-policy-control.yml",
+      "items": [
+        ["Prepare", "Inspect inherited policies; create-evaluate or create-active; record the ID."],
+        ["Probe", "Send permitted manual dispatch and disallowed repository dispatch."],
+        ["Enforce + recover", "Activate where needed; inspect actual error/insights; cleanup by ID."]
+      ],
+      "callout": "HTTP acceptance proves request delivery, not workflow execution or policy enforcement.",
+      "notes": "Switch to the policy-control workflow. Start with inspect to show that inherited policies remain visible. Create the demo policy in evaluate mode if supported, otherwise use the already-approved active-mode path. Record the returned policy ID. Submit the allowed and disallowed probes and find the generated labels in the harmless target workflow. In evaluate mode, the disallowed event may still execute while insights record the would-block result. Activate the policy with its ID and repeat the probes. Show the actual policy error for the repository-dispatch attempt and the successful permitted manual execution. Do not treat an HTTP acceptance response as proof of enforcement; dispatch is asynchronous and the actual target result matters. Run cleanup using the recorded ID. If credentials, plan entitlement, or an inherited policy prevent this demo, state the blocker and show real rehearsal evidence or the configuration without simulating success. Finish by noting that no production or organization-wide policy was weakened."
+    },
+    {
+      "title": "Expired artifacts are now absent, not stale UI entries",
+      "kind": "columns",
+      "minutes": 2,
+      "section": "7 | Artifact visibility change | Effective",
+      "items": [
+        ["Previously", "An expired pill could remain visible.\nThe underlying files were already gone.\nConsumers could mistake visibility for retained data."],
+        ["Now", "Expired artifacts disappear from the run summary.\nREST results no longer retain expired entries.\nCreation evidence can still be found in retained logs."]
+      ],
+      "callout": "This is a display/API change. Artifact retention settings and billing are unchanged.",
+      "source": ["GitHub Changelog | 24 Sep 2026", "https://github.blog/changelog/2026-09-24-expired-github-actions-artifacts-no-longer-shown-in-ui-and-api/"],
+      "notes": "The September twenty-fourth update removes expired artifacts from the workflow run summary and the REST API. Previously the interface could retain an expired entry even after the artifact files were already deleted. That made it easy to confuse a visible record with actual retained content, and it created ambiguity around storage billing. The update removes that stale visibility. It does not change retention settings or billing rules. Integrations therefore need to handle a record being absent rather than depending on an expired flag remaining in a list. The original run logs can still show what the workflow produced while those logs are themselves retained. Our demonstration separates the artifact from a longer-lived receipt so we can inspect disappearance against its original identity and expiry time."
+    },
+    {
+      "title": "Natural expiry needs a prepared evidence chain",
+      "kind": "flow",
+      "minutes": 2,
+      "section": "7 | One-day artifact; fourteen-day receipt",
+      "items": [
+        ["Seed", "Upload harmless content\nbefore the session."],
+        ["Receipt", "Record actual ID,\ncreated_at, expires_at."],
+        ["Wait", "Allow natural expiry\nand service cleanup."],
+        ["Observe", "Check list absence\nand direct GET 404."]
+      ],
+      "callout": "No manual deletion. Absence alone cannot distinguish deletion from natural expiry.",
+      "source": ["Artifact visibility release", "https://github.blog/changelog/2026-09-24-expired-github-actions-artifacts-no-longer-shown-in-ui-and-api/"],
+      "notes": "We cannot faithfully accelerate a day-based retention policy into a few minutes by deleting the artifact ourselves. The seed workflow must run before delivery. It uploads a one-day artifact and reads its actual identity and expiration from GitHub. It then stores a separate receipt for fourteen days. On inspection, we verify that the selected seed run succeeded and that the original expiry has passed. Only then do we check the run artifact list and direct artifact endpoint. If the artifact remains visible while cleanup is pending, the workflow reports not ready and fails explicitly. We also have to be precise about attribution: absence alone cannot prove natural expiry rather than manual deletion. In this prepared demo we intentionally do not delete the target, and we retain the original upload logs and receipt as provenance."
+    },
+    {
+      "title": "Demo 3 | Inspect an earlier seeded artifact",
+      "kind": "demo",
+      "minutes": 4,
+      "workflow": "demo-3-artifact-expiry.yml",
+      "items": [
+        ["Open seed evidence", "Show the successful earlier seed run and retained receipt."],
+        ["Inspect", "operation=inspect; enter the recorded seed run ID."],
+        ["Compare", "List absence + direct GET 404 + original expiry and upload logs."]
+      ],
+      "callout": "If the seed is too recent or cleanup is pending, say NOT READY and use genuine rehearsal evidence.",
+      "notes": "Open the earlier seed run first, not a new run. Point out the target artifact's original ID, creation time, and expiry, and the separately retained receipt. Launch inspect mode using that seed run ID or open the completed inspection rehearsal. Show the inspector's two observations: the target is absent from the run artifact list, and the direct GET returns 404. Keep the receipt and original upload step nearby so the audience can connect absence to a known artifact. State that no manual deletion occurred and that the result is consistent with natural expiry. If the seed has not expired or service cleanup is incomplete, the correct result is not ready; do not change timestamps or delete the artifact to manufacture a success. Connect the outcome to DXC delivery integrations: handle absent records and plan evidence retention explicitly, without inferring billing changes from UI behavior."
+    },
+    {
+      "title": "Two different limits affect workflow-run reporting",
+      "kind": "metrics",
+      "minutes": 2,
+      "section": "8 | Count accuracy and retrieval completeness",
+      "items": [
+        ["2,500+", "Large-count label", "Counts beyond 2,500 are bounded, not exact."],
+        ["1,000", "Filtered retrieval cap", "A single filtered search returns up to 1,000 runs."]
+      ],
+      "callout": "Ordinary pagination does not remove the filtered cap. Inspect actual API count values.",
+      "source": ["GitHub Changelog | 25 Sep 2026", "https://github.blog/changelog/2026-09-25-changes-to-query-results-in-the-github-actions-api-and-ui/"],
+      "notes": "The reporting update addresses broad queries that previously timed out and could return misleading counts. The announcement says that counts beyond two thousand five hundred are reported as two thousand five hundred plus instead of an attempted exact count. Separately, a filtered workflow-run search still returns up to one thousand items. Those are different limits. A bounded count is not an exact activity total, and requesting more pages does not overcome the filtered retrieval cap. Also, the REST schema and the UI label need not have identical representations. Our client examines the actual returned value instead of blindly requiring the UI's string format. In a small repository we will demonstrate the query pattern and pagination, but we will not claim to have observed the large-volume threshold."
+    },
+    {
+      "title": "Split the time window before you hit the retrieval cap",
+      "kind": "flow",
+      "minutes": 1,
+      "section": "8 | Explicit UTC bounds; distinct run IDs; bounded requests",
+      "items": [
+        ["Query", "Read count and first page\nfor an explicit window."],
+        ["Split", "If bounded or >=1,000,\nsubdivide into adjacent windows."],
+        ["Enumerate", "Page smaller windows;\ndeduplicate run IDs."],
+        ["Stop safely", "Fail on saturation or budget;\nnever claim truncated data is complete."]
+      ],
+      "callout": "API enumeration is not an atomic snapshot; concurrent record changes still matter.",
+      "source": ["Workflow runs REST reference", "https://docs.github.com/rest/actions/workflow-runs#list-workflow-runs-for-a-repository"],
+      "notes": "The client queries a specific UTC time window and looks at the returned count before trying to enumerate it. If the count is bounded or reaches the one-thousand-item filtered cap, it divides the window into adjacent ranges with no gaps or overlap. Smaller windows can then be paginated, and the collected run IDs are deduplicated. A request budget and a smallest-window guard prevent unbounded API traffic or silent truncation. If the result cannot be enumerated safely, the script fails rather than writing a success-shaped complete report. This is still not an atomic snapshot: creation or deletion during the requests can change what the API returns."
+    },
+    {
+      "title": "Demo 4 | Live small-repo pagination; labeled large-count fixture",
+      "kind": "demo",
+      "minutes": 3,
+      "workflow": "demo-4-bounded-reporting.yml",
+      "items": [
+        ["Live query", "Dates cover rehearsal runs; page size 2 makes pagination visible."],
+        ["Read evidence", "Inspect distinct IDs, actual counts, windows, and request total."],
+        ["Explain scale", "Show the synthetic bounded-count unit test; label it offline."]
+      ],
+      "callout": "No large count observed = no live proof of the 2,500+ threshold.",
+      "notes": "Run the reporting workflow with dates that cover our rehearsal runs and page size two. This makes ordinary pagination visible without generating thousands of workflows. Open its summary and JSON to show the actual returned counts, distinct run IDs, and request count. Point to the explicit statement about whether a count requiring splitting was observed. If it says false, state clearly that we did not observe the large-volume threshold in this repository. Then show the unit test that feeds a synthetic bounded-count response to the splitting algorithm. Identify this as an offline fixture, not a real GitHub response. It proves the client's branch behavior and adjacent-window calculation, while a genuine threshold observation would require an approved high-volume repository. For production, use page size one hundred and a sensible date range."
+    },
+    {
+      "title": "Runner registration and job runtime have separate deadlines",
+      "kind": "columns",
+      "minutes": 2,
+      "section": "9 | Enterprise Cloud enforcement begins 29 Sep 2026",
+      "items": [
+        ["Registration", "Below 2.329.0 cannot register or reregister.\nRegistration minimum is not the runtime minimum.\nInspect registration_deprecates_at."],
+        ["Runtime", "A higher minimum governs job execution.\nExisting registration is not a support guarantee.\nInspect runtime_deprecates_at."]
+      ],
+      "callout": "Enterprise Server is unaffected by this notice. Data Residency enforcement began 31 July.",
+      "source": ["GitHub Changelog | 28 Sep 2026", "https://github.blog/changelog/2026-09-28-self-hosted-runner-version-enforcement-date-has-moved/"],
+      "notes": "The September twenty-eighth notice moved the full enforcement start on Enterprise Cloud to September twenty-ninth. It did not change the requirements themselves. Runners below version two-point-three-two-nine-zero cannot register or reregister. The minimum required to execute jobs is higher, so passing the registration threshold must not be presented as passing runtime support. Existing registered runners can stop accepting jobs when they fall below the required runtime version. This notice does not affect Enterprise Server; enforcement for Enterprise Cloud with Data Residency began July thirty-first. The deprecation API we use to inspect dates was announced September third, outside our selected publication window. It is supporting functionality for this new enforcement notice, not a newly released September twenty-eighth endpoint."
+    },
+    {
+      "title": "Demo 5 | Audit deadlines without disrupting a runner",
+      "kind": "demo",
+      "minutes": 3,
+      "workflow": "demo-5-runner-readiness.yml",
+      "items": [
+        ["Start read-only", "Query explicit versions on a hosted runner; no fleet changes."],
+        ["Compare dates", "Show registration and runtime deprecation independently."],
+        ["Optional inventory", "Add approved fleet versions; missing versions remain unknown."]
+      ],
+      "callout": "No date returned is not a guarantee of support. Never downgrade a runner for this demo.",
+      "notes": "Open the runner-readiness workflow. Use repository scope and the default explicit versions unless an organization inventory was approved and rehearsed. The job runs on a hosted runner and only performs read operations against the administrative endpoint. Show registration and runtime dates in separate columns. Explain that a null date is reported as no date returned, not as a supported-version guarantee. If we enable inventory, visible runner versions are added to the lookups and missing versions remain an explicit data-quality issue. The audit does not register, stop, downgrade, upgrade, or delete runners. If administrator access is unavailable, state that the live endpoint is blocked and use a clearly identified rehearsal or the API shape rather than fabricated dates. Keep the demo brief and move to the adoption checklist at minute forty-six."
+    },
+    {
+      "title": "Turn the updates into five DXC adoption actions",
+      "kind": "table",
+      "minutes": 2,
+      "headers": ["Owner role", "Recommended next action", "Evidence to review"],
+      "rows": [
+        ["CI maintainers", "Assign cache modes by trust boundary", "Restore/save assertions and cache inventory"],
+        ["Platform governance", "Pilot file-scoped execution protections", "Evaluate insights, then actual enforcement"],
+        ["Delivery integration owners", "Handle absent expired artifacts", "Original receipt and retained upload logs"],
+        ["Reporting engineers", "Bound queries and paginate smaller windows", "Actual counts, IDs, and completeness caveats"],
+        ["Runner operations", "Check registration AND runtime readiness", "Live deprecation dates and fleet versions"]
+      ],
+      "callout": "Pilot in a disposable repository. Review scope and privileges before broader rollout.",
+      "notes": "These are the five practical follow-through actions I recommend. CI maintainers should map cache access to job trust rather than applying write everywhere. Platform governance should pilot file-scoped execution protections, using evaluate where available and reviewing real enforcement evidence before broad rollout. Delivery integration owners should make missing expired artifacts a normal handled case and retain provenance where the delivery process needs it. Reporting engineers should inspect actual count values, split time windows before retrieval caps, and avoid treating a truncated query as a complete activity total. Runner operations should audit both registration and runtime dates, keeping unknown versions visible. These are recommended owner roles, not assignments to specific DXC individuals. Start narrowly and review account policies, credentials, and evidence before scaling."
+    },
+    {
+      "title": "The takeaway: control execution, preserve meaning",
+      "kind": "cards",
+      "minutes": 2,
+      "items": [
+        ["Least privilege", "Limit cache capability.\nScope workflow execution policy.\nKeep administrator credentials separate."],
+        ["Reliable evidence", "Observe actual service outcomes.\nHandle absence and bounded counts.\nDistinguish live results from fixtures."],
+        ["Operational readiness", "Seed time-based demos early.\nAudit runner dates independently.\nKeep rollback and cleanup explicit."]
+      ],
+      "callout": "At minute 50, stop presenting. Upcoming: affected public pull_request_target default enforcement on 2 Nov.",
+      "notes": "Our shared theme is to control execution while preserving the meaning of the evidence we collect. Cache permissions and workflow policies address different layers of least privilege. Artifact visibility and bounded counts remind us that a record's absence or a returned count must be interpreted carefully. Runner readiness requires separate registration and runtime checks. Keep the demo patterns narrow, credentials scoped, and cleanup explicit. One relevant upcoming date is November second, when the announced default pull_request_target policy is enforced for affected public repositories; that is not a claim of universal enforcement today. We have reached the fifty-minute handoff, so I will stop starting demonstrations here. If a workflow is still queued, it can finish independently without consuming the question period. Let's use the final ten minutes for the scenarios and adoption concerns most relevant to your teams."
+    },
+    {
+      "title": "Q & A",
+      "kind": "qa",
+      "minutes": 10,
+      "subtitle": "10 minutes | Presentation and demos stop at minute 50",
+      "body": "Trust boundaries | Evidence retention | Reporting scale | Runner operations",
+      "notes": "Reserve the full final ten minutes for audience questions. Suggested prompts if needed: Which jobs in your pipelines really need cache write access? Which workflows should have different execution policies from ordinary CI? Which delivery integrations expect expired artifact records to remain visible? Do reporting consumers assume a single broad query is complete? How do platform operations currently distinguish runner registration readiness from runtime readiness? When answering, keep github.com and Enterprise Server scope separate, and distinguish plan-dependent evaluate mode from active policy enforcement. Do not guess a higher runtime minimum or a customer's available entitlement; refer to the live API and account capability. If a question needs production-specific investigation, record the scope and required owner rather than making an administrative change during Q&A."
+    },
+    {
+      "title": "Sources | Selected releases in the 30-day window",
+      "kind": "links",
+      "minutes": 0,
+      "section": "Appendix | Publication dates, not inferred availability",
+      "links": [
+        ["10 Sep | Cache access control", "https://github.blog/changelog/2026-09-10-control-github-actions-cache-access-with-cache-mode/"],
+        ["17 Sep | Workflow execution protections GA", "https://github.blog/changelog/2026-09-17-workflow-execution-protections-in-github-actions-generally-available/"],
+        ["24 Sep | Expired artifact visibility", "https://github.blog/changelog/2026-09-24-expired-github-actions-artifacts-no-longer-shown-in-ui-and-api/"],
+        ["25 Sep | Workflow-run query results", "https://github.blog/changelog/2026-09-25-changes-to-query-results-in-the-github-actions-api-and-ui/"],
+        ["28 Sep | Self-hosted runner enforcement", "https://github.blog/changelog/2026-09-28-self-hosted-runner-version-enforcement-date-has-moved/"]
+      ],
+      "notes": "This appendix contains clickable first-party release sources for the five selected updates. The publication window is September tenth through October ninth, inclusive. The complete catalog contains twelve verified Actions-related entries, including other features and operational notices that were not selected. No Actions-tagged entry later than October second was present in the official feeds when researched. Recheck the official changelog before delivery if you want to add releases after the research cutoff, but do not silently change the promised thirty-day window or selected topic scope."
+    },
+    {
+      "title": "Sources | Implementation references and earlier supporting API",
+      "kind": "links",
+      "minutes": 0,
+      "section": "Appendix | Keep supporting functionality separate from new releases",
+      "links": [
+        ["Cache-mode workflow syntax", "https://docs.github.com/actions/reference/workflows-and-actions/workflow-syntax#cache-mode"],
+        ["Actions policy concepts", "https://docs.github.com/en/actions/concepts/about-actions-policies"],
+        ["Execution protection setup", "https://docs.github.com/en/actions/how-tos/administer/control-workflow-execution"],
+        ["Actions policies REST API", "https://docs.github.com/en/rest/actions/policies"],
+        ["Workflow runs REST API", "https://docs.github.com/rest/actions/workflow-runs#list-workflow-runs-for-a-repository"],
+        ["Runner deprecation API: earlier 3 Sep announcement", "https://github.blog/changelog/2026-09-03-github-actions-early-september-2026-updates/#new-rest-api-for-runner-version-deprecations"]
+      ],
+      "notes": "These references support implementation and interpretation. The runner deprecation endpoint came from the earlier September third update, so it is outside the selected research window and should be described as supporting prior functionality. Workflow syntax explains that forbidden cache operations can continue without failing the job, which is why the demo independently verifies cache state. Policy documentation explains the separate actor/event rules, layered enforcement, and Enterprise Cloud evaluate mode. The workflow-run REST documentation distinguishes the filtered retrieval cap from the count-reporting announcement. Use the exact account capabilities and live response schema at rehearsal rather than assuming all cloud behavior is available on Enterprise Server."
+    },
+    {
+      "title": "Rehearsal gate | What must be ready before delivery",
+      "kind": "cards",
+      "minutes": 0,
+      "section": "Appendix | Local package is not a live GitHub rehearsal",
+      "items": [
+        ["Repository", "Commit .github and scripts to the default branch.\nEnable pinned actions and hosted runners.\nRun package validation."],
+        ["Administrative access", "Protect demo-admin and scope credentials.\nConfirm policy evaluate entitlement.\nRehearse allowed/blocked outcomes."],
+        ["Time-based evidence", "Seed artifact by 10-11 October if possible.\nRecord actual expires_at and seed ID.\nInspect after natural cleanup."]
+      ],
+      "callout": "No repository was published or live-tested during local preparation.",
+      "notes": "Use this appendix as the pre-delivery gate. The package must be committed to the destination repository's default branch, including the hidden dot-github folder. Actions and the pinned first-party actions must be permitted by the account. Administrative credentials belong in the protected demo-admin environment and should be scoped to the disposable repository. Evaluate requires Enterprise Cloud; active mode can be used only in the approved isolated target if evaluate is unavailable. Seed the artifact early enough for the real expiration and asynchronous cleanup, record the exact expiry and seed run ID, and rehearse inspection before delivery. The local preparation did not publish a repository or execute GitHub service behavior on the presenter's behalf. That remaining rehearsal is necessary before calling any live demo verified."
+    },
+    {
+      "title": "Cleanup | Remove only what this demonstration created",
+      "kind": "columns",
+      "minutes": 0,
+      "section": "Appendix | Preserve production policies, caches, and fleets",
+      "items": [
+        ["Explicit cleanup", "Policy control: cleanup with recorded demo ID.\nRevoke temporary administrator credentials.\nOptionally remove only run-specific demo caches."],
+        ["Natural lifecycle", "Do not delete the expiry target before observation.\nReceipt artifacts last 14 days, reports 7 days.\nRunner audit never modifies a fleet."]
+      ],
+      "callout": "Keep DXC Internal materials and runner reports in an appropriately restricted repository.",
+      "notes": "After the session, remove the specific demo policy using its recorded ID. The script refuses a policy with an unrelated name prefix or workflow target, but the presenter should still review the selected ID. Revoke short-lived administrative credentials and remove environment secrets that are no longer needed. Demo caches may be removed only by their exact run-specific prefix, not with a broad delete-all operation. The expiry target must not be manually deleted before the observation because that would undermine the natural-expiry demonstration. Receipts and report artifacts have their own retention and account caps still apply. No runner audit cleanup requires stopping or deleting runners because the audit is read-only. The template carries DXC Internal branding and fleet reports may contain internal metadata, so retain them only in an appropriately restricted repository."
+    }
+  ]
+}

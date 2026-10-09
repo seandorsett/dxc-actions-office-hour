@@ -1,0 +1,70 @@
+# Usage: Actions > Demo 1 > Run workflow. No extra secrets required.
+# Prerequisites: github.com cache-mode support and permitted hosted runners.
+name: Demo 1 - Cache least privilege
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+cache-mode: none
+
+jobs:
+  seed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    cache-mode: write
+    steps:
+      - name: Seed harmless trusted content
+        run: |
+          mkdir -p .demo-cache/seed
+          printf 'trusted-demo-seed\n' > .demo-cache/seed/marker.txt
+      - name: Save seed
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: .demo-cache/seed
+          key: dxc-oh-${{ github.run_id }}-${{ github.run_attempt }}-seed
+  read:
+    needs: seed
+    cache-mode: read
+    uses: ./.github/workflows/demo-1-cache-probe.yml
+    with:
+      mode: read
+  write:
+    needs: seed
+    cache-mode: write
+    uses: ./.github/workflows/demo-1-cache-probe.yml
+    with:
+      mode: write
+  write-only:
+    needs: seed
+    cache-mode: write-only
+    uses: ./.github/workflows/demo-1-cache-probe.yml
+    with:
+      mode: write-only
+  none:
+    needs: seed
+    cache-mode: none
+    uses: ./.github/workflows/demo-1-cache-probe.yml
+    with:
+      mode: none
+  verify:
+    needs: [read, write, write-only, none]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Verify actual cache state through GitHub API
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BASE_KEY: dxc-oh-${{ github.run_id }}-${{ github.run_attempt }}
+        run: python scripts/demo_api.py cache-check --base-key "$BASE_KEY"
+      - name: Retain verification report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cache-mode-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: demo-output/
+          retention-days: 7
+          if-no-files-found: error
