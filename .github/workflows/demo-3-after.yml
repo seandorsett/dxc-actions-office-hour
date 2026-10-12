@@ -1,0 +1,61 @@
+# AFTER: use the successful Demo 3 BEFORE run ID after natural expiration.
+# The workflow fails explicitly if the target is not yet expired/cleaned up.
+# Cleanup: receipts expire after 14 days. No deletion or retention-policy changes.
+name: Demo 3 - AFTER - Expired artifact is absent
+on:
+  workflow_dispatch:
+    inputs:
+      before_run_id:
+        description: Successful Demo 3 BEFORE run ID
+        required: true
+        type: string
+permissions:
+  actions: read
+cache-mode: none
+
+jobs:
+  example:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Validate the before run ID
+        env:
+          BEFORE_RUN_ID: ${{ inputs.before_run_id }}
+        run: |
+          [[ "$BEFORE_RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo '::error::Enter a numeric BEFORE run ID.'; exit 1; }
+      - name: Download the retained receipt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dxc-oh-receipt-${{ inputs.before_run_id }}
+          path: receipt/
+          run-id: ${{ inputs.before_run_id }}
+          github-token: ${{ github.token }}
+      - name: Compare the original receipt with today's API visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_RUN_ID: ${{ inputs.before_run_id }}
+        run: |
+          jq -e --arg repo "$GITHUB_REPOSITORY" --argjson run "$BEFORE_RUN_ID" \
+            '.repository==$repo and .before_run_id==$run and .name==("dxc-oh-expiry-"+($run|tostring))
+            and (.id|type)=="number" and .id>0' receipt/receipt.json > /dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BEFORE_RUN_ID" |
+            jq -e '.conclusion=="success" and (.path|split("@")[0])==".github/workflows/demo-3-before.yml"' > /dev/null
+          expiry=$(jq -r '.expires_at' receipt/receipt.json)
+          test "$(date -u +%s)" -ge "$(date -u -d "$expiry" +%s)" ||
+            { echo "::error::NOT READY: natural expiration is $expiry."; exit 1; }
+          name=$(jq -r '.name' receipt/receipt.json)
+          id=$(jq -r '.id' receipt/receipt.json)
+          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BEFORE_RUN_ID/artifacts?name=$name" --jq '.total_count')
+          test "$count" = '0' || { echo '::error::NOT READY: target is still visible; wait for cleanup.'; exit 1; }
+          status=$(curl --silent --show-error --output direct.json --write-out '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$id")
+          test "$status" = '404' || { echo "::error::Expected absent artifact; direct GET returned HTTP $status."; exit 1; }
+          {
+            echo '## AFTER: expired artifact is absent'
+            echo "Artifact $id is absent from the list; direct GET returns 404."
+            echo "Original expiration: $expiry."
+            echo 'Compare with the BEFORE receipt and upload logs. No billing or retention rule changed.'
+            echo 'This supports natural expiry only if no one manually deleted the target.'
+          } >> "$GITHUB_STEP_SUMMARY"

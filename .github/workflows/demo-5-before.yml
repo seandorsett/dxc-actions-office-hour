@@ -1,0 +1,41 @@
+# BEFORE: registration-only comparison, intentionally insufficient for runtime.
+# Illustrates an older readiness assumption, not an attempt to register a runner.
+# No token, self-hosted runner, or fleet changes. Cleanup: none.
+name: Demo 5 - BEFORE - Registration-only assumption
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Runner version to compare with the announced registration floor
+        required: true
+        type: string
+        default: '2.329.0'
+permissions: {}
+cache-mode: none
+
+jobs:
+  example:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Show why registration alone is not enough
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import os, re
+          version = os.environ["VERSION"]
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              raise SystemExit("ERROR: Enter major.minor.patch.")
+          meets_floor = tuple(map(int, version.split("."))) >= (2, 329, 0)
+          message = (
+              f"## BEFORE: registration-only assumption\n\n"
+              f"Version: {version}. Meets the 2.329.0 registration floor: {meets_floor}.\n\n"
+              "This is only a local numeric comparison, NOT an observed registration.\n"
+              "Runtime readiness is UNKNOWN. A registration floor cannot prove job support.\n"
+          )
+          print(message)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(message)
+          PY
+

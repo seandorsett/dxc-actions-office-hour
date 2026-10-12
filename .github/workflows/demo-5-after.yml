@@ -1,0 +1,60 @@
+# AFTER prerequisite: demo-admin environment restricted to the default branch.
+# Store RUNNER_READ_TOKEN there: approved repository Administration read access
+# and an administrator identity where required. The normal token is insufficient.
+# Read-only deprecation lookup; no runner is changed.
+# Cleanup: revoke the temporary token and remove its environment secret.
+name: Demo 5 - AFTER - Registration and runtime dates
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Same runner version used in Demo 5 BEFORE
+        required: true
+        type: string
+        default: '2.329.0'
+permissions: {}
+cache-mode: none
+
+jobs:
+  example:
+    environment: demo-admin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Read the two distinct support deadlines
+        env:
+          GH_TOKEN: ${{ secrets.RUNNER_READ_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH" ||
+            { echo '::error::Run the credentialed demo only from the default branch.'; exit 1; }
+          test -n "$GH_TOKEN" || { echo '::error::Configure RUNNER_READ_TOKEN in demo-admin.'; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+            { echo '::error::Enter major.minor.patch.'; exit 1; }
+          gh api -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "repos/$GITHUB_REPOSITORY/actions/runners/deprecations/$VERSION" > dates.json
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          data = json.load(open("dates.json"))
+          if data["runner_version"] != os.environ["VERSION"]:
+              raise SystemExit("ERROR: API returned a different version.")
+          lines = [f"## AFTER: live deadlines for {data['runner_version']}", ""]
+          for field in ("registration_deprecates_at", "runtime_deprecates_at"):
+              value = data[field]
+              if value is None:
+                  status = "No date returned; support is not guaranteed."
+              else:
+                  when = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                  if when.tzinfo is None:
+                      raise SystemExit("ERROR: API date lacks a timezone.")
+                  state = "passed" if when <= datetime.now(timezone.utc) else "upcoming"
+                  status = f"{value} ({state})"
+              lines.append(f"- {field}: {status}")
+          lines.append("\nRead-only lookup. No runner was registered, stopped, or upgraded.")
+          message = "\n".join(lines) + "\n"
+          print(message)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(message)
+          PY

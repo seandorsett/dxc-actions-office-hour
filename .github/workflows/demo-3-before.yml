@@ -1,0 +1,54 @@
+# BEFORE: seed a one-day artifact at least a day before the session.
+# Copy this run ID into Demo 3 AFTER once its actual expires_at has passed.
+# The 14-day receipt preserves provenance; it does not replay the old Expired pill.
+# Cleanup: let the target expire naturally. Do not delete it to manufacture expiry.
+name: Demo 3 - BEFORE - Artifact exists
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+cache-mode: none
+
+jobs:
+  example:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Create harmless artifact content
+        run: |
+          mkdir -p demo-artifact
+          echo 'Office Hour sample' > demo-artifact/message.txt
+      - name: Upload the one-day target
+        id: target
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dxc-oh-expiry-${{ github.run_id }}
+          path: demo-artifact/
+          retention-days: 1
+          if-no-files-found: error
+      - name: Save the actual artifact identity and expiration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.target.outputs.artifact-id }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" |
+            jq --arg repo "$GITHUB_REPOSITORY" --argjson run "$GITHUB_RUN_ID" \
+            '{repository:$repo, before_run_id:$run, id, name, created_at, expires_at}' > receipt.json
+          echo "Run Demo 3 AFTER with before_run_id=$GITHUB_RUN_ID."
+          {
+            echo '## BEFORE: artifact exists'
+            echo "Before run ID: $GITHUB_RUN_ID"
+            echo 'Actual upload receipt:'
+            echo '```json'
+            cat receipt.json
+            echo '```'
+            echo 'Wait for this expires_at and service cleanup. Keep this successful run and receipt.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain the receipt for the later comparison
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dxc-oh-receipt-${{ github.run_id }}
+          path: receipt.json
+          retention-days: 14
+          if-no-files-found: error
+

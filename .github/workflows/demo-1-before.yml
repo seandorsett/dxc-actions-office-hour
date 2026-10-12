@@ -1,0 +1,32 @@
+# BEFORE: run manually, then copy the run ID into Demo 1 AFTER.
+# Shows the older implicit cache-access approach on today's GitHub service.
+# Cleanup: optionally delete only this run's dxc-oh-simple-* cache in Actions.
+name: Demo 1 - BEFORE - Implicit cache writes
+on:
+  workflow_dispatch:
+permissions: {}
+
+jobs:
+  example:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Create harmless cache content
+        run: |
+          mkdir -p demo-cache
+          printf 'trusted sample\n' > demo-cache/message.txt
+      - name: Save with the trigger's default cache access
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: demo-cache
+          key: dxc-oh-simple-before-${{ github.run_id }}
+      - name: Record the before run ID
+        run: |
+          echo "Before run ID: $GITHUB_RUN_ID"
+          {
+            echo '## BEFORE: no explicit cache-mode'
+            echo 'This trusted manual trigger uses its default cache write access.'
+            echo "Run Demo 1 AFTER with before_run_id=$GITHUB_RUN_ID."
+            echo 'This is an older configuration pattern, not a replay of the old service.'
+          } >> "$GITHUB_STEP_SUMMARY"
+

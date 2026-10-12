@@ -1,0 +1,24 @@
+# AFTER prerequisite: a repository administrator creates a policy in
+# Settings > Actions > Policies named dxc-office-hour-demo-2.
+# Target ONLY .github/workflows/demo-2-after.yml; allow push, not workflow_dispatch.
+# Choose Active for the live block. Evaluate/insights require Enterprise Cloud.
+# Then manually trigger this workflow: GitHub should block it before a job runs.
+# Cleanup: delete only the named demo policy in Settings > Actions > Policies.
+name: Demo 2 - AFTER - Policy blocks manual execution
+on:
+  workflow_dispatch:
+permissions: {}
+cache-mode: none
+
+jobs:
+  example:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Detect an absent or non-active demo policy
+        run: |
+          echo '::error::This job reached a runner. The intended policy did not actively block this dispatch.'
+          echo 'Configure the file-scoped Active policy described in this workflow header, then retry.'
+          echo 'Inspect the actual policy error or Policy insights, not this script, as the feature evidence.'
+          exit 1
+

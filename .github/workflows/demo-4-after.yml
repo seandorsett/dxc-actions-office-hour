@@ -1,0 +1,48 @@
+# AFTER: choose a UTC day, follow pages, and refuse a saturated filtered query.
+# The simple demo asks you to narrow the date rather than recursively split ranges.
+# Read-only. A small repository cannot prove the 2,500+ count threshold.
+# Cleanup: none; no remote data is changed.
+name: Demo 4 - AFTER - Date-bounded pages
+on:
+  workflow_dispatch:
+    inputs:
+      utc_date:
+        description: UTC date containing your rehearsal runs, YYYY-MM-DD
+        required: true
+        type: string
+        default: '2026-10-13'
+permissions:
+  actions: read
+cache-mode: none
+
+jobs:
+  example:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Query one day and follow its pages safely
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UTC_DATE: ${{ inputs.utc_date }}
+        run: |
+          [[ "$UTC_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] &&
+            test "$(date -u -d "$UTC_DATE" +%F)" = "$UTC_DATE" ||
+            { echo '::error::Enter a valid UTC date in YYYY-MM-DD format.'; exit 1; }
+          endpoint="repos/$GITHUB_REPOSITORY/actions/runs?created=$UTC_DATE&event=workflow_dispatch&per_page=100"
+          total=$(gh api "$endpoint" --jq '.total_count')
+          [[ "$total" =~ ^[0-9]+$ ]] && test "$total" -lt 1000 ||
+            { echo '::error::Count is bounded or reaches the 1,000-run cap. Choose a smaller time window.'; exit 1; }
+          gh api --paginate --slurp "$endpoint" |
+            jq '[.[].workflow_runs[]|{id,name,created_at}]|unique_by(.id)' > runs.json
+          count=$(jq length runs.json)
+          test "$count" -lt 1000 || { echo '::error::Retrieval cap reached; narrow the query.'; exit 1; }
+          {
+            echo '## AFTER: explicit UTC date and pagination'
+            echo "UTC day: $UTC_DATE. Reported count: $total. Distinct IDs observed: $count."
+            echo '```json'
+            cat runs.json
+            echo '```'
+            echo 'This is not an atomic snapshot. Concurrent creation/deletion can change the results.'
+            echo 'Large-count behavior was not demonstrated by this below-cap query.'
+          } >> "$GITHUB_STEP_SUMMARY"
+

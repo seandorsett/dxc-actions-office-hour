@@ -1,0 +1,23 @@
+# BEFORE: manually run this harmless workflow in the disposable repository.
+# Inherited policies still apply. No deployment, secrets, or write permissions.
+name: Demo 2 - BEFORE - Manual execution
+on:
+  workflow_dispatch:
+permissions: {}
+cache-mode: none
+
+jobs:
+  example:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Show permitted manual execution
+        run: |
+          echo 'The harmless BEFORE job reached a runner.'
+          {
+            echo '## BEFORE: manual execution'
+            echo 'This file is outside the narrow AFTER demo policy.'
+            echo 'No deployment or production change occurred.'
+            echo 'Existing enterprise, organization, and repository policies still apply.'
+          } >> "$GITHUB_STEP_SUMMARY"
+

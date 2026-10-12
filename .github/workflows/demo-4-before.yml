@@ -1,0 +1,31 @@
+# BEFORE: one broad API page, the common incomplete-reporting approach.
+# Read-only. The summary explicitly does NOT claim a complete or exact total.
+# Cleanup: none; no remote data is changed.
+name: Demo 4 - BEFORE - One broad page
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+cache-mode: none
+
+jobs:
+  example:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Show what one broad page actually returns
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?event=workflow_dispatch&per_page=2" \
+            --jq '{reported_total_count:.total_count, returned_on_this_page:(.workflow_runs|length),
+            runs:[.workflow_runs[]|{id,name,created_at}]}' > page.json
+          {
+            echo '## BEFORE: a broad query and one page'
+            echo '```json'
+            cat page.json
+            echo '```'
+            echo 'This is only one page. A reported count is not proof of an exact, complete export.'
+            echo 'Both examples use the current service; this does not replay the former count behavior.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
