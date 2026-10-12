@@ -19,28 +19,15 @@
       "kind": "agenda",
       "minutes": 1,
       "rows": [
-        ["00-04", "Welcome and demo contract", "What is verified and what is conditional"],
-        ["04-16", "Cache least privilege", "Four modes; reusable-workflow ceiling"],
-        ["16-27", "Execution protections", "File-scoped policy and real trigger outcomes"],
-        ["27-35", "Expired artifact visibility", "Natural expiry with retained provenance"],
-        ["35-41", "Bounded reporting", "Counts, retrieval caps, and time windows"],
-        ["41-46", "Runner readiness", "Registration is not runtime support"],
-        ["46-50", "DXC adoption checklist", "Owners, next actions, and buffer"],
+        ["03-15", "Cache least privilege", "Four modes; reusable-workflow ceiling"],
+        ["15-26", "Execution protections", "File-scoped policy and real trigger outcomes"],
+        ["26-34", "Expired artifact visibility", "Natural expiry with retained provenance"],
+        ["34-40", "Bounded reporting", "Counts, retrieval caps, and time windows"],
+        ["40-45", "Runner readiness", "Registration is not runtime support"],
+        ["45-50", "DXC adoption checklist", "Owners, next actions, and buffer"],
         ["50-60", "Q&A", "Hard stop on presentation and demos"]
       ],
-      "notes": "Here is the run of show. Cache controls get the first deep dive, followed by execution protections. We then move from security to operational evidence: artifact expiry and reporting limits. We finish the technical content with a read-only runner readiness audit. The final four minutes before Q&A are for an actionable adoption checklist and any short runner-queue buffer. The demo budgets are presenter budgets, not a promise that GitHub will provision every hosted runner instantly. I will use rehearsed runs if a live queue threatens the schedule. That keeps the full ten-minute question period intact."
-    },
-    {
-      "title": "The demo contract: observable, safe, and honest",
-      "kind": "cards",
-      "minutes": 1,
-      "items": [
-        ["Workflow-driven", "Manual triggers in GitHub.\nHarmless data and isolated keys.\nNo production fleet changes."],
-        ["Real evidence", "Cache contents and API state.\nActual policy errors and insights.\nOriginal artifact receipts."],
-        ["Explicit limits", "Admin access for policies/fleet APIs.\nExpiry prepared in advance.\nSynthetic tests clearly labeled."]
-      ],
-      "callout": "A green step, HTTP 204, or absent record is not sufficient proof by itself.",
-      "notes": "Three rules will guide the demos. First, execution is workflow-driven with harmless data and narrow scopes. Second, we inspect observable evidence rather than relying on green step colors. Third, we state limitations explicitly. Policy administration and runner administration need separate approved credentials. Natural artifact expiry needs preparation before the live session. A small repository does not demonstrate a two-thousand-five-hundred-run threshold merely because a unit test covers it. If a prerequisite is unavailable, I will show genuine rehearsal evidence or an explanatory example and label it accordingly. That distinction is important when we turn a demonstration into an enterprise adoption decision."
+      "notes": "Here is the run of show. Following the title and agenda, cache controls start at minute three and get the first deep dive, followed by execution protections. We then move from security to operational evidence: artifact expiry and reporting limits. We finish the technical content with a read-only runner readiness audit. The final five minutes before Q&A are for an actionable adoption checklist and any short runner-queue buffer. The demo budgets are presenter budgets, not a promise that GitHub will provision every hosted runner instantly. I will use rehearsed runs if a live queue threatens the schedule. That keeps the full ten-minute question period intact."
     },
     {
       "title": "Cache access can now follow the trust boundary",
@@ -245,7 +232,7 @@
         ["Optional inventory", "Add approved fleet versions; missing versions remain unknown."]
       ],
       "callout": "No date returned is not a guarantee of support. Never downgrade a runner for this demo.",
-      "notes": "Open the runner-readiness workflow. Use repository scope and the default explicit versions unless an organization inventory was approved and rehearsed. The job runs on a hosted runner and only performs read operations against the administrative endpoint. Show registration and runtime dates in separate columns. Explain that a null date is reported as no date returned, not as a supported-version guarantee. If we enable inventory, visible runner versions are added to the lookups and missing versions remain an explicit data-quality issue. The audit does not register, stop, downgrade, upgrade, or delete runners. If administrator access is unavailable, state that the live endpoint is blocked and use a clearly identified rehearsal or the API shape rather than fabricated dates. Keep the demo brief and move to the adoption checklist at minute forty-six."
+      "notes": "Open the runner-readiness workflow. Use repository scope and the default explicit versions unless an organization inventory was approved and rehearsed. The job runs on a hosted runner and only performs read operations against the administrative endpoint. Show registration and runtime dates in separate columns. Explain that a null date is reported as no date returned, not as a supported-version guarantee. If we enable inventory, visible runner versions are added to the lookups and missing versions remain an explicit data-quality issue. The audit does not register, stop, downgrade, upgrade, or delete runners. If administrator access is unavailable, state that the live endpoint is blocked and use a clearly identified rehearsal or the API shape rather than fabricated dates. Keep the demo brief and move to the adoption checklist at minute forty-five."
     },
     {
       "title": "Turn the updates into five DXC adoption actions",
@@ -265,7 +252,7 @@
     {
       "title": "The takeaway: control execution, preserve meaning",
       "kind": "cards",
-      "minutes": 2,
+      "minutes": 3,
       "items": [
         ["Least privilege", "Limit cache capability.\nScope workflow execution policy.\nKeep administrator credentials separate."],
         ["Reliable evidence", "Observe actual service outcomes.\nHandle absence and bounded counts.\nDistinguish live results from fixtures."],

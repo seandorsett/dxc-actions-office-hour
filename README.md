@@ -31,13 +31,13 @@ sharing policy; do not assume this material is approved for a public repository.
 
 | Minutes | Segment |
 | --- | --- |
-| 0-4 | Welcome, outcomes, and demo contract |
-| 4-16 | Cache least privilege and reusable-workflow ceiling |
-| 16-27 | Workflow execution protections and policy demonstration |
-| 27-35 | Natural artifact expiration and retained evidence |
-| 35-41 | Bounded reporting and time-window pagination |
-| 41-46 | Read-only runner upgrade readiness |
-| 46-50 | DXC adoption checklist and takeaways |
+| 0-3 | Title and agenda |
+| 3-15 | Cache least privilege and reusable-workflow ceiling |
+| 15-26 | Workflow execution protections and policy demonstration |
+| 26-34 | Natural artifact expiration and retained evidence |
+| 34-40 | Bounded reporting and time-window pagination |
+| 40-45 | Read-only runner upgrade readiness |
+| 45-50 | DXC adoption checklist, takeaways, and buffer |
 | 50-60 | Q&A |
 
 Runner queue time is not included in promised execution times. Rehearse, launch

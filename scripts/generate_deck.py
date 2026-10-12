@@ -87,7 +87,7 @@ def footer(slide, data, elapsed, index):
     if source := data.get("source"):
         shape = box(slide, source[0], 0.65, 8.10, 10.5, 0.25, 11, BLUE)
         shape.text_frame.paragraphs[0].runs[0].hyperlink.address = source[1]
-    label = ("Appendix" if index > 21 else
+    label = ("Appendix" if data["minutes"] == 0 else
              f"{elapsed:02d}-{elapsed + data['minutes']:02d} min")
     box(slide, label, 12.00, 8.10, 3.35, 0.25, 11, GRAY, align=PP_ALIGN.RIGHT)
 

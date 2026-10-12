@@ -31,6 +31,11 @@ def check():
     for index, (slide, item) in enumerate(zip(deck.slides, plan["slides"]), 1):
         if item["kind"] == "qa" and elapsed != 50:
             errors.append(f"Q&A starts at {elapsed}, not minute 50.")
+        expected_footer = ("Appendix" if item["minutes"] == 0 else
+                           f"{elapsed:02d}-{elapsed + item['minutes']:02d} min")
+        if not any(shape.has_text_frame and shape.text == expected_footer
+                   for shape in slide.shapes):
+            errors.append(f"Slide {index}: timing footer differs from the plan.")
         elapsed += item["minutes"]
         if slide.notes_slide.notes_text_frame.text != item["notes"]:
             errors.append(f"Slide {index}: notes differ from full transcript.")

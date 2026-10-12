@@ -76,10 +76,10 @@ their segments so runner queues do not consume Q&A time.
 ## Selected session
 
 The chosen topics are **1, 2, 7, 8, and 9**, implemented as demo numbers
-**1, 2, 3, 4, and 5** in the package. The selected schedule is 4 minutes
+**1, 2, 3, 4, and 5** in the package. The selected schedule is 3 minutes
 opening, 12 minutes cache controls, 11 minutes execution policies, 8 minutes
 artifact visibility, 6 minutes reporting, 5 minutes runner readiness, and
-4 minutes takeaways/buffer. Q&A begins at minute 50 and lasts 10 minutes.
+5 minutes takeaways/buffer. Q&A begins at minute 50 and lasts 10 minutes.
 
 ## Update details, constraints, and sources
 
@@ -343,7 +343,7 @@ retirement or schedule a demo that relies on the old image failing.
 
 ## Local package deliverables
 
-- A 25-slide PowerPoint deck using the supplied DXC presentation template, preserving its
+- A 24-slide PowerPoint deck using the supplied DXC presentation template, preserving its
   branding and layouts, with full presenter notes, source links, demo cues, and
   explicit timing through the 50-minute handoff to Q&A.
 - Selected demos under `.github/workflows`, launchable from GitHub's Actions

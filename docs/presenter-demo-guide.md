@@ -299,7 +299,7 @@ adoption checklist and hand the final ten minutes over to questions."
 
 ## Hard stop and fallback
 
-At minute 46, stop starting new jobs. Use minutes 46-50 for actions/takeaways.
+At minute 45, stop starting new jobs. Use minutes 45-50 for actions/takeaways and buffer.
 At minute 50, switch to Q&A even if a workflow is still queued.
 
 Fallback narration:
