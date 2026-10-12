@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       before_run_id:
-        description: Successful Demo 1 BEFORE run ID
+        description: Full run ID from the successful Demo 1 BEFORE summary
         required: true
         type: string
 permissions:
@@ -20,14 +20,25 @@ jobs:
     steps:
       - name: Validate the before run ID
         env:
+          GH_TOKEN: ${{ github.token }}
           BEFORE_RUN_ID: ${{ inputs.before_run_id }}
         run: |
-          [[ "$BEFORE_RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo '::error::Enter a numeric BEFORE run ID.'; exit 1; }
+          [[ "$BEFORE_RUN_ID" =~ ^[1-9][0-9]*$ ]] ||
+            { echo '::error::Copy the full numeric run ID from Demo 1 BEFORE.'; exit 1; }
+          if ! gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BEFORE_RUN_ID" > before-run.json; then
+            echo "::error::Cannot read Before run $BEFORE_RUN_ID. Copy its full run ID from the summary or Actions run URL."
+            exit 1
+          fi
+          jq -e '(.path|split("@")[0])==".github/workflows/demo-1-before.yml"
+            and .status=="completed" and .conclusion=="success"' before-run.json > /dev/null ||
+            { echo '::error::The ID must identify a successful Demo 1 BEFORE run in this repository.'; exit 1; }
+          echo "Validated successful Before run: $BEFORE_RUN_ID"
       - name: Restore the trusted cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: demo-cache
           key: dxc-oh-simple-before-${{ inputs.before_run_id }}
+          fail-on-cache-miss: true
       - name: Check the restored content
         run: |
           test "$(cat demo-cache/message.txt)" = 'trusted sample'
@@ -50,4 +61,3 @@ jobs:
             echo 'Open the save step to see the service-enforced denial.'
             echo 'A green save step alone would not prove that anything was saved.'
           } >> "$GITHUB_STEP_SUMMARY"
-

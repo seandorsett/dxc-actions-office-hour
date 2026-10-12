@@ -66,6 +66,12 @@ manual trigger's default cache access. Run After with that `before_run_id`.
 After adds **`cache-mode: read`**, restores the known text, attempts a new
 save, and checks that the candidate cache key is absent.
 
+Copy the **entire** numeric ID from Before's summary or its Actions run URL.
+After validates that the ID belongs to a successful Demo 1 Before run in this
+repository. A missing cache fails at the restore step instead of a later
+missing-file check; confirm the Before cache still exists and use the same
+branch as your Before run.
+
 **Show:** restored content, the denied-save log, and the final summary.
 A green cache step alone does not prove anything was saved. No extra secret
 is needed.
