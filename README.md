@@ -158,7 +158,8 @@ Before running After, create an Actions **environment named `demo-admin`**:
 The normal `GITHUB_TOKEN` is insufficient for this administrator-only lookup.
 After queries **`registration_deprecates_at`** and
 **`runtime_deprecates_at`** separately and labels returned dates as passed or
-upcoming. A null date means **no date returned**, not guaranteed support.
+upcoming. An omitted or null date means **no date returned**, not guaranteed
+support.
 
 **Show:** the local assumption beside the live API's two dates. This workflow
 never registers, stops, upgrades, or removes a runner. Revoke the temporary

@@ -42,7 +42,7 @@ jobs:
               raise SystemExit("ERROR: API returned a different version.")
           lines = [f"## AFTER: live deadlines for {data['runner_version']}", ""]
           for field in ("registration_deprecates_at", "runtime_deprecates_at"):
-              value = data[field]
+              value = data.get(field)
               if value is None:
                   status = "No date returned; support is not guaranteed."
               else:
